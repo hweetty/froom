@@ -13,6 +13,7 @@ exports.sendRes = function (res, message, data, code)
         code = 200;
     res.send ({
         code    : code,
+        success : code == 200,
         message : message,
         data    : data
     }, code);

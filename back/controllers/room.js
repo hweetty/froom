@@ -7,6 +7,7 @@ var helper  = require ("../controllers/helper.js");
 // Change to a 10 min interval
 function parseTime (t)
 {
+    t = parseInt(t);
     var h = Math.floor(t / 100);
     var m = t % 100;
     return h*6 + Math.floor(m / 10);
@@ -24,15 +25,19 @@ function getTimeFromRequest(req)
 
 
     var t = req.query.time, d = req.query.day;
+console.log("top:   day: " + d + " t: " + t);
     if (!t)
         t = date.getHours()*60 + date.getMinutes();
-    else
-        t = parseTime(t);
+     
+     t = parseTime(t);
 
+console.log("getDate() :" + date.getDate());
     if (!d)
-        d = (date.getDate()+6) % 7; // 'rotate' so that 0 is monday
+        d = (date.getDay()+6) % 7; // 'rotate' so that 0 is monday
     else
         d = helper.daysFromString(d)[0]; // Use first entry
+
+console.log("day: " + d + " t: " + t);
 
     // Error check
     if (t < 0 || t > 24*6 || d < 0 || d > 6)
@@ -82,9 +87,8 @@ exports.getFree = function (req, res)
         "weekdays"   : { $in: [d] },
         "start_time" : { $lte: t},
         "end_time"   : { $gte: t}
-    }, function(e, courses) {
-        console.log(e);
-        console.log(courses);
+    }, function(e, courses)
+    {
         if (!e && courses)
         {
             // Go through all rooms and eliminate those that are not free
@@ -93,7 +97,7 @@ exports.getFree = function (req, res)
             var fullBuildings = {};
             for (var i in courses)
             {
-                var c = courses[i];console.log(c);
+                var c = courses[i];
                 var rooms = buildings[c.building];
 
                 if (!rooms)
@@ -103,7 +107,6 @@ exports.getFree = function (req, res)
                     var j = rooms.indexOf(c.room);
                     if (j >= 0) {
                         rooms.splice(j, 1);
-                        console.log("tooked out room: " + c.room);
                     }
                 }
             } // For
@@ -115,7 +118,6 @@ exports.getFree = function (req, res)
                 buildings[keys[i]].sort();
             }
 
-            console.log(buildings);
             helper.sendRes(res, "ok", buildings);
         }
         else
