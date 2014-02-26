@@ -27,7 +27,7 @@ function getTimeFromRequest(req)
     var t = req.query.time, d = req.query.day;
 console.log("top:   day: " + d + " t: " + t);
     if (!t)
-        t = date.getHours()*60 + date.getMinutes();
+        t = date.getHours()*100 + date.getMinutes();
      
      t = parseTime(t);
 

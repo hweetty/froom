@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
     <link rel="stylesheet" type="text/css" href="style.css"/>
     <script type="text/javascript"
-      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDSuV6OH1F2hdbKNd_kH2nfKrS2-nvEWYg&sensor=false">
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyARsfWZO1qXHlsPp_MBx7Fi8hbbrOerutY&sensor=false">
     </script>
   </head>
   <body>
@@ -18,7 +18,8 @@
 
 <!-- :( pretty ugly. still beats my previous js code :p-->
 <div id="free-room-template" style=" position:absolute; left:-10000px; top: -10000px">
-    <div style="height: %height%px" class="clock-cell">
+    <div onmouseover="mouseOver('%building%');"
+         onmouseout="mouseOut('%building%');" style="height: %height%px" class="clock-cell">
     <div style="top: %y%px" class="cell-main">
         <h1 class="cell-title">%building%</h1>
         <h2 class="cell-num-free %colour%">%rooms.length%</h2>
@@ -35,11 +36,6 @@
         <p class="cell-rooms-list">123,4556,1232,4141, 4065</p>
         </div>
         <div class="clock-cell">
-        <h1 class="cell-title">RCH</h1>
-        <h2 class="cell-num-free">42</h2>
-        <p class="cell-rooms-list">123,4556,1232,4141, 4065</p>
-        </div>
-        <div class="clock-cell">
         <h1 class="cell-title">ABCD</h1>
         <h2 class="cell-num-free">42</h2>
         <p class="cell-rooms-list">123,4556,1232,4141, 4065</p>
@@ -49,23 +45,44 @@
         <h2 class="cell-num-free">42</h2>
         <p class="cell-rooms-list">123,4556,1232,4141, 4065</p> -->
     </div>
+    </div>
     <div id="clock-footer">
         <label id="clock-total" class="green">1337</label><label> rooms currently free</label>
     </div>
-    </div>
+        <label id="beta">beta</label>
 
+<script type="text/javascript" src="/building-coordinates.js"></script>
 <script type="text/javascript">
 
-var FREE_ROOMS = "FREE_ROOMS";
+var FREE_ROOMS       = "FREE_ROOMS";
+
+var NORMAL_STROKE    = 2;
+var HIGHLIGHT_STROKE = 4;
+var FREE_COLOUR      = "#14E114";
+var FULL_COLOUR      = "#FF0000"
 
 var free_room_template = document.getElementById("free-room-template").innerHTML;
 
 // My vars
 var _baseURL = "/1/";
 var _freeRooms = [];
+var _buildingPaths = {};
+_map = 0;
 
 updateData();
 
+
+function mouseOver(building)
+{
+    _buildingPaths[building].setOptions({strokeWeight:HIGHLIGHT_STROKE
+    });
+}
+
+function mouseOut(building)
+{
+    _buildingPaths[building].setOptions({strokeWeight:NORMAL_STROKE
+    });
+}
 
 function receivedData (data)
 {
@@ -95,19 +112,50 @@ function updateUI (data, type)
         var keys = Object.keys(data);
         for (var i in keys)
         {
-            var cellData = {
-                building : keys[i],
-                rooms    : data[keys[i]]
-            }
+            var free = data[keys[i]].length > 0;
 
-            str += formatCell(cellData);
-            total += cellData.rooms.length;
-        }
+            if (free)
+            {
+                var cellData = {
+                    building : keys[i],
+                    rooms    : data[keys[i]]
+                }
+
+                str += formatCell(cellData);
+                total += cellData.rooms.length;
+            }
+            
+            // Create path on gmaps?
+            if (_map && !_buildingPaths[cellData.building])
+            {
+                console.log("creating map for :" +  cellData.building);
+                var posns = [];
+                var coords = BUILDING_COORDINATES[cellData.building];
+                for (var j in coords)
+                {
+                    var c = coords[j];
+                    posns.push (new google.maps.LatLng(c[0], c[1]));
+                }
+
+                var path = new google.maps.Polyline(
+                {
+                    path: posns,
+                    geodesic: true,
+                    strokeColor: free ? FREE_COLOUR : FULL_COLOUR,
+                    strokeOpacity: 0.7,
+                    strokeWeight: NORMAL_STROKE
+                });
+
+                path.setMap(_map);
+                _buildingPaths[cellData.building] = path;
+                _p = path;
+            } // Build polyling
+        } // for loop
 
         var clockTable = document.getElementById("clock-table");
         clockTable.innerHTML = str;
         document.getElementById("clock-total").innerHTML = total;
-    }
+    } // room type is free rooms
 }
 
 // Ask server for data
@@ -127,10 +175,11 @@ function formatCell (cellData)
 {
     var str = "";
 
+    var roomsStr = cellData.rooms.join(", ");
     var height = 80;
-    if (cellData.rooms.length >= 25)
+    if (roomsStr.length >= 120)
         height = 130;
-    else if (cellData.rooms.length >= 20)
+    else if (roomsStr.length >= 90)
         height = 110;
 
     var y = (height - 77) / 2;
@@ -141,16 +190,20 @@ function formatCell (cellData)
         "%building%": cellData.building,
         "%colour%": "green",
         "%rooms.length%": cellData.rooms.length,
-        "%rooms%": cellData.rooms.join(", ")
+        "%rooms%": roomsStr
     };
-
 
     var s = free_room_template;
     var keys = Object.keys(replace);
     for (var i in keys)
     {
         var k = keys[i];
-        s = s.replace (k, replace[k]);
+        var d = s.replace (k, replace[k]);
+        while ((d != s))
+        {
+            s = d;
+            d = s.replace (k, replace[k]);
+        }
     }
 
     // str += '<div style="height: ' + height +'px;" class="clock-cell">';
@@ -163,13 +216,24 @@ function formatCell (cellData)
     return s;
 }
 
-google.maps.event.addDomListener(window, 'load', function initialize() {
-        var mapOptions = {
-          center: new google.maps.LatLng(-34.397, 150.644),
-          zoom: 8
-        };
-        var map = new google.maps.Map(document.getElementById("map-canvas"),
-            mapOptions);
+google.maps.event.addDomListener(window, 'load', function initialize()
+{
+    var w = screen.width;
+    if (w <= 480)
+        return;
+    
+    var mapOptions = {
+      center: new google.maps.LatLng(43.471251246728556, -80.54237189706724),
+      zoom: 17,
+      panControl: false,
+      zoomControl: true,
+      mapTypeControl: false,
+      streetViewControl: false,
+      scaleControl: false,
+      overviewMapControl: false
+    };
+    _map = new google.maps.Map(document.getElementById("map-canvas"),
+        mapOptions);
 });
 
 function GET (url, fn)

@@ -36,6 +36,6 @@ app.configure(function() {
 require('./routes.js')(app);
 
 //Start server
-var server = app.listen(8080);
+var server = app.listen(3059);
 
 console.log('Node/Express server started on ' + config.environment + ' server!');
